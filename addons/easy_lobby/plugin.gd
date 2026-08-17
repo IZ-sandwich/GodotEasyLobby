@@ -21,14 +21,13 @@ var SETTINGS := [
 		"value": PackedStringArray(),
 		"type": TYPE_PACKED_STRING_ARRAY,
 	},
-	# Try the local network before noray when joining. Turn this off to exercise
-	# the punchthrough and relay paths, which a LAN success would otherwise hide -
-	# including on a single machine, where LAN always wins.
+	# Try the local network before noray when joining. Turn this off to only use
+	# noray's punchthrough and relay paths.
 	{"name": "easy_lobby/lan/enabled", "value": true, "type": TYPE_BOOL},
 	# Where hosts answer discovery probes. Only has to be free on the host, and
 	# only has to agree between the players in a session.
 	{"name": "easy_lobby/lan/discovery_port", "value": 8898, "type": TYPE_INT},
-	# Paid on every join that turns out *not* to be on the LAN, so keep it short.
+	# Paid on every join that turns out not to be on the LAN, so keep it short.
 	# A local subnet round trip is a couple of milliseconds.
 	{"name": "easy_lobby/lan/discovery_timeout_sec", "value": 0.6, "type": TYPE_FLOAT},
 	{"name": "easy_lobby/timeouts/handshake_sec", "value": 8.0, "type": TYPE_FLOAT},
@@ -37,7 +36,7 @@ var SETTINGS := [
 	# CONNECTING forever, so without this a down noray hangs instead of erroring.
 	{"name": "easy_lobby/timeouts/noray_connect_sec", "value": 5.0, "type": TYPE_FLOAT},
 	# A colliding OID makes noray's Repository.add() throw, so `set-oid` never
-	# arrives and registration times out. Retrying is the whole fix.
+	# arrives and registration times out. Retrying is the fix.
 	{"name": "easy_lobby/timeouts/register_retries", "value": 3, "type": TYPE_INT},
 	# Prints every step of registration and the connect ladder.
 	{"name": "easy_lobby/debug/verbose_logging", "value": false, "type": TYPE_BOOL},

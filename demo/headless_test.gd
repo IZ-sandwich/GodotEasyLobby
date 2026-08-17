@@ -14,6 +14,8 @@ var _role := ""
 var _saw_peer := false
 var _expect_failures := false
 var _expect_closed := ""
+## The chat message this role is waiting on, empty once it has arrived.
+var _expect_chat := ""
 
 
 func _ready() -> void:
@@ -34,6 +36,8 @@ func _ready() -> void:
 	EasyLobby.lobby_updated.connect(_on_updated)
 	EasyLobby.connect_progress.connect(func(stage: String) -> void: print("STAGE=", stage))
 	Noray.on_command.connect(func(cmd: String, data: String) -> void: print("NORAY=", cmd, " ", data))
+	if _role.ends_with("-chat"):
+		EasyLobby.chat_message_received.connect(_on_chat)
 
 	_watchdog()
 
@@ -81,6 +85,26 @@ func _ready() -> void:
 			var err := await EasyLobby.join_lobby(args[1], "Client")
 			if err != OK:
 				_fail("join_lobby:" + error_string(err))
+		"host-chat":
+			# LAN-only, so the chat roles need no noray to run.
+			var err := await EasyLobby.create_lobby("Host", 0, true)
+			if err != OK:
+				_fail("create_lobby:" + error_string(err))
+				return
+			_expect_chat = "ping"
+			# Overrun the backlog before anyone joins, so the cap and the
+			# history the joiner gets handed are both under test.
+			for i in EasyLobby.MAX_CHAT_MESSAGES + 5:
+				EasyLobby.send_chat("msg%d" % i)
+			_check_backlog("msg5", "msg104")
+		"join-chat":
+			if args.size() < 2:
+				_fail("join-chat needs a code")
+				return
+			_expect_chat = "pong"
+			var err := await EasyLobby.join_lobby(args[1], "Client", true)
+			if err != OK:
+				_fail("join_lobby:" + error_string(err))
 		"relay":
 			# Probe the raw connect-relay payload shape, which is what the
 			# _watch_command guard has to classify correctly.
@@ -122,11 +146,46 @@ func _on_updated() -> void:
 			get_tree().quit(0)
 		"join-kicked":
 			pass  # the point of the run is what happens next; wait for it
+		"host-chat":
+			pass  # the exchange in _on_chat decides when this run is done
+		"join-chat":
+			# The backlog arrived with the roster, so it is readable already.
+			_check_backlog("msg5", "msg104")
+			EasyLobby.send_chat("ping")
 		_:
 			# Success for the plain roles is the same thing: two peers, one roster.
 			print("OK")
 			await get_tree().create_timer(1.0).timeout
 			get_tree().quit(0)
+
+
+## Chat arriving is what drives the two chat roles: the client opens with "ping"
+## once it is in, the host answers "pong", and each side stops on the other's line.
+func _on_chat(message: Dictionary) -> void:
+	print("CHAT=%s: %s" % [message.player_name, message.text])
+	if _expect_chat.is_empty() or message.text != _expect_chat:
+		return
+	_expect_chat = ""
+
+	if _role == "host-chat":
+		EasyLobby.send_chat("pong")
+		# Give the reply time off the wire before tearing the lobby down.
+		await get_tree().create_timer(1.0).timeout
+	print("OK")
+	get_tree().quit(0)
+
+
+## Assert the backlog is capped and holds the newest messages, not the first ones.
+func _check_backlog(expect_first: String, expect_last: String) -> void:
+	var messages: Array = EasyLobby.get_chat_messages()
+	var first: String = messages[0].text if not messages.is_empty() else ""
+	var last: String = messages[-1].text if not messages.is_empty() else ""
+	print("CHAT_BACKLOG=%d first=%s last=%s" % [messages.size(), first, last])
+
+	if messages.size() != EasyLobby.MAX_CHAT_MESSAGES:
+		_fail("backlog holds %d, expected %d" % [messages.size(), EasyLobby.MAX_CHAT_MESSAGES])
+	elif first != expect_first or last != expect_last:
+		_fail("backlog runs %s..%s, expected %s..%s" % [first, last, expect_first, expect_last])
 
 
 ## Assert EasyLobbyCodeFilter accepts ordinary codes and rejects ugly ones.
@@ -200,6 +259,8 @@ func _watchdog() -> void:
 		_fail("timeout after %.0fs" % TIMEOUT_SEC)
 	elif not _expect_closed.is_empty():
 		_fail("timeout waiting for lobby_closed('%s')" % _expect_closed)
+	elif not _expect_chat.is_empty():
+		_fail("timeout waiting for the chat message '%s'" % _expect_chat)
 
 
 func _fail(reason: String) -> void:

@@ -58,6 +58,8 @@ All of it is on the `EasyLobby` autoload.
 | `kick(peer_id)` | Host only. Kicks a player. |
 | `set_ready(bool)` | Any player. |
 | `set_lobby_meta(key, value)` | Host only. Replicated to everyone. |
+| `send_chat(text)` | Any player. Blank messages are dropped. |
+| `get_chat_messages()` -> `Array[Dictionary]` | Oldest first, at most 100. |
 | `get_players()` -> `Array[EasyLobbyPlayer]` | Ordered by peer id, host first. |
 | `get_local_player()` / `get_player(id)` | |
 | `all_ready()` | True when everyone is ready and there are >= 2 players. |
@@ -70,6 +72,7 @@ All of it is on the `EasyLobby` autoload.
 | `lobby_join_failed(reason)` | One of the `JOIN_*` constants. |
 | `player_joined(player)` / `player_left(peer_id)` | |
 | `lobby_updated()` | Fires when player roster, ready flags or metadata have changed. |
+| `chat_message_received(message)` | A chat message arrived, the local player's included. |
 | `lobby_closed(reason)` | One of the `CLOSED_*` constants. |
 | `connect_progress(stage)` | `registering` / `searching LAN` / `punching` / `relaying` / `connected via ...`. |
 
@@ -79,19 +82,6 @@ Failure reasons are constants:
 
 `EasyLobbyPlayer` carries `peer_id`, `player_name`, `is_ready` and `custom`,
 which replicate on update.
-
-## Known limits
-
-- **No host migration.** If peer 1 leaves, the session ends - you get
-  `lobby_closed("host_left")`.
-- **UDP only.** noray relays UDP and has no TCP or TLS/443 path, so players on
-  networks that block UDP outright cannot connect at all. There is no workaround
-  within this architecture.
-- **The host is authoritative and can cheat.** Inherent to hosted P2P.
-- **Peers see each other's IPs** on the direct path. Unavoidable without
-  relaying everything, and a relay-only mode wouldn't actually prevent it -
-  noray answers `connect <oid>` with the host's address to anyone who asks.
-
 
 # How it works
 
@@ -164,6 +154,18 @@ its code is good for exactly as long as it's still hosting.
 
 So treat a join code as a lease on a TCP session. A
 host whose lobby has sat idle may find their code has quietly stopped resolving, the fix for which is to call `reroll_code()` and let the players reconnect if they got dropped.
+
+## Known limitations
+
+- **No host migration.** If peer 1 leaves, the session ends - you get
+  `lobby_closed("host_left")`.
+- **UDP only.** noray relays UDP and has no TCP or TLS/443 path, so players on
+  networks that block UDP outright cannot connect at all. There is no workaround
+  within this architecture.
+- **The host is authoritative and can cheat.** Inherent to hosted P2P.
+- **Peers see each other's IPs** on the direct path. Unavoidable without
+  relaying everything, and a relay-only mode wouldn't actually prevent it -
+  noray answers `connect <oid>` with the host's address to anyone who asks.
 
 ## Notes on netfox.noray
 

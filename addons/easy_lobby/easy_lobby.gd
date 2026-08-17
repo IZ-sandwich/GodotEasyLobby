@@ -30,6 +30,10 @@ signal player_left(peer_id: int)
 ## The roster, ready flags or lobby metadata changed.
 signal lobby_updated()
 
+## A chat message arrived, from another player or from the local one. [param message]
+## is one of the dictionaries described on [method get_chat_messages].
+signal chat_message_received(message: Dictionary)
+
 ## The lobby ended. [param reason] is one of the CLOSED_* constants.
 signal lobby_closed(reason: String)
 
@@ -63,6 +67,13 @@ const MAX_CODE_DRAWS := 3
 ## [method _reject] notice before closing the socket from this end.
 const DISCONNECT_GRACE_SEC := 2.0
 
+## How many chat messages the backlog keeps. The oldest is dropped past this.
+const MAX_CHAT_MESSAGES := 100
+
+## Longest chat message the host accepts. Anything past this is cut off, so one
+## peer cannot push a huge string at everyone else.
+const MAX_CHAT_LENGTH := 200
+
 # --- State --------------------------------------------------------------------
 
 ## The current join code, empty when not in a lobby.
@@ -78,7 +89,9 @@ var meta: Dictionary = {}
 var sealed: bool = false
 
 ## Mapping from peer_id to EasyLobbyPlayer
-var _players: Dictionary = {}  
+var _players: Dictionary = {}
+## The chat backlog, oldest first, capped at MAX_CHAT_MESSAGES.
+var _chat: Array[Dictionary] = []
 var _max_players: int = 8
 var _local_name: String = ""
 var _busy: bool = false
@@ -127,6 +140,7 @@ func create_lobby(player_name: String, max_players: int = 0, offline := false) -
 	is_host = true
 	sealed = false
 	meta = {}
+	_chat.clear()
 	code = _noray.get_code()
 
 	var host_player := EasyLobbyPlayer.new()
@@ -234,6 +248,28 @@ func set_lobby_meta(key: String, value: Variant) -> void:
 	_sync_lobby.rpc(_roster_payload(), meta, sealed)
 
 
+## Send a chat message to everyone in the lobby, the local player included.
+##
+## Blank messages are dropped. The host stamps the sender's name and trims the
+## text, so neither can be faked by the sending peer.
+func send_chat(text: String) -> void:
+	if not is_in_lobby() or text.strip_edges().is_empty():
+		return
+	if is_host:
+		_broadcast_chat(1, text)
+	else:
+		_request_chat.rpc_id(1, text)
+
+
+## The chat backlog, oldest first, at most [constant MAX_CHAT_MESSAGES] entries.
+##
+## Each message is a dictionary of [code]peer_id[/code], [code]player_name[/code]
+## and [code]text[/code]. The name is stored per message rather than looked up,
+## so the backlog still reads correctly once a player has left.
+func get_chat_messages() -> Array[Dictionary]:
+	return _chat.duplicate()
+
+
 func is_in_lobby() -> bool:
 	return not code.is_empty()
 
@@ -313,6 +349,9 @@ func _request_join(player_name: String) -> void:
 	player.player_name = player_name
 	_players[sender] = player
 
+	# Before the roster, so the backlog is already in place when the joiner's
+	# lobby_joined fires and it draws its chat for the first time.
+	_sync_chat.rpc_id(sender, _chat)
 	_sync_lobby.rpc(_roster_payload(), meta, sealed)
 	player_joined.emit(player)
 	lobby_updated.emit()
@@ -323,6 +362,28 @@ func _request_ready(value: bool) -> void:
 	if not is_host:
 		return
 	_apply_ready(multiplayer.get_remote_sender_id(), value)
+
+
+## Use this for a client to send a chat to the host.
+@rpc("any_peer", "call_remote", "reliable")
+func _request_chat(text: String) -> void:
+	if not is_host:
+		return
+	_broadcast_chat(multiplayer.get_remote_sender_id(), text)
+
+
+## Host calls this and pushes the message to everyone after the host recieves the `_request_chat` rpc.
+@rpc("authority", "call_remote", "reliable")
+func _receive_chat(message: Dictionary) -> void:
+	_append_chat(message)
+
+
+## The whole backlog is sent to a peer as they join so it doesn't start blank.
+@rpc("authority", "call_remote", "reliable")
+func _sync_chat(history: Array) -> void:
+	_chat.clear()
+	for message in history:
+		_chat.append(message)
 
 
 @rpc("authority", "call_remote", "reliable")
@@ -443,6 +504,33 @@ func _disconnect_after_grace(peer_id: int) -> void:
 		(multiplayer.multiplayer_peer as ENetMultiplayerPeer).disconnect_peer(peer_id)
 
 
+## Host only: accept a message from [param peer_id] and send it to everyone.
+##
+## Validating here rather than at the sender is what keeps the name honest and
+## the text bounded. This is the only place a message enters the backlog.
+func _broadcast_chat(peer_id: int, text: String) -> void:
+	var player: EasyLobbyPlayer = _players.get(peer_id)
+	var trimmed := text.strip_edges().left(MAX_CHAT_LENGTH)
+	if player == null or trimmed.is_empty():
+		return
+
+	var message := {
+		"peer_id": peer_id,
+		"player_name": player.player_name,
+		"text": trimmed,
+	}
+	# Ordering of these two calls is intentional (instead of call_local rpc) to guarantee host is in sync with others.
+	_receive_chat.rpc(message)
+	_append_chat(message)
+
+
+func _append_chat(message: Dictionary) -> void:
+	_chat.append(message)
+	if _chat.size() > MAX_CHAT_MESSAGES:
+		_chat.remove_at(0)
+	chat_message_received.emit(message)
+
+
 func _apply_ready(peer_id: int, value: bool) -> void:
 	var player: EasyLobbyPlayer = _players.get(peer_id)
 	if player == null or player.is_ready == value:
@@ -490,6 +578,7 @@ func _reset() -> void:
 	sealed = false
 	meta = {}
 	_players = {}
+	_chat.clear()
 	_busy = false
 
 

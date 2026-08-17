@@ -44,6 +44,9 @@ const MODE_HINTS := {
 @onready var _leave_button: Button = %LeaveButton
 @onready var _status_label: Label = %StatusLabel
 @onready var _player_roster: VBoxContainer = %PlayerRoster
+@onready var _chat_log: RichTextLabel = %ChatLog
+@onready var _chat_row: HBoxContainer = %ChatRow
+@onready var _chat_line_edit: LineEdit = %ChatEdit
 
 
 func _ready() -> void:
@@ -58,6 +61,7 @@ func _ready() -> void:
 	EasyLobby.lobby_join_failed.connect(_on_join_failed)
 	EasyLobby.lobby_closed.connect(_on_lobby_closed)
 	EasyLobby.lobby_updated.connect(_refresh)
+	EasyLobby.chat_message_received.connect(func(_message: Dictionary) -> void: _refresh_chat())
 	EasyLobby.connect_progress.connect(func(stage: String) -> void: _set_status(stage + "..."))
 
 	_refresh()
@@ -134,6 +138,20 @@ func _on_leave_button_pressed() -> void:
 	EasyLobby.leave_lobby()
 
 
+func _on_chat_edit_text_submitted(_text: String) -> void:
+	_send_chat()
+
+
+func _on_chat_send_button_pressed() -> void:
+	_send_chat()
+
+
+func _send_chat() -> void:
+	EasyLobby.send_chat(_chat_line_edit.text)
+	_chat_line_edit.clear()
+	_chat_line_edit.grab_focus()
+
+
 # --- Signal handlers ----------------------------------------------------------
 
 
@@ -196,6 +214,9 @@ func _refresh() -> void:
 	_lobby_seal_button.set_pressed_no_signal(EasyLobby.sealed)
 	_ready_button.visible = in_lobby
 	_leave_button.visible = in_lobby
+	_chat_log.visible = in_lobby
+	_chat_row.visible = in_lobby
+	_refresh_chat()
 
 	for child in _player_roster.get_children():
 		child.queue_free()
@@ -233,6 +254,16 @@ func _refresh() -> void:
 		var note := Label.new()
 		note.text = "Everyone is ready."
 		_player_roster.add_child(note)
+
+
+## Redraw the whole backlog rather than appending to it, since the addon drops
+## the oldest message once it is full and there is no cheap way to mirror that.
+## The label's scroll_following keeps the newest line in view.
+func _refresh_chat() -> void:
+	var lines := PackedStringArray()
+	for message in EasyLobby.get_chat_messages():
+		lines.append("%s: %s" % [message.player_name, message.text])
+	_chat_log.text = "\n".join(lines)
 
 
 func _refresh_code_display() -> void:

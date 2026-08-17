@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://bn2f6cvumene2"]
+[gd_scene format=3 uid="uid://bn2f6cvumene2"]
 
 [ext_resource type="Script" uid="uid://cch00bkgtbux1" path="res://demo/main.gd" id="1_main"]
 
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Root" type="VBoxContainer" parent="."]
+[node name="Root" type="VBoxContainer" parent="." unique_id=1395863643]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -24,107 +24,133 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Root"]
+[node name="Title" type="Label" parent="Root" unique_id=1349778603]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "EasyLobby demo"
 
-[node name="NameEdit" type="LineEdit" parent="Root"]
+[node name="NameEdit" type="LineEdit" parent="Root" unique_id=1441386108]
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "Your name"
 
-[node name="ModeRow" type="HBoxContainer" parent="Root"]
+[node name="ModeRow" type="HBoxContainer" parent="Root" unique_id=1375558668]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ModeLabel" type="Label" parent="Root/ModeRow"]
+[node name="ModeLabel" type="Label" parent="Root/ModeRow" unique_id=1216654203]
 layout_mode = 2
 text = "Connection:"
 
-[node name="ModeOption" type="OptionButton" parent="Root/ModeRow"]
+[node name="ModeOption" type="OptionButton" parent="Root/ModeRow" unique_id=859149525]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Auto: try the local network first, then noray.
 noray only: skip the LAN shortcut, so punchthrough and relay get exercised.
 LAN only: no noray at all, and everyone must be on this network."
 
-[node name="Actions" type="HBoxContainer" parent="Root"]
+[node name="Actions" type="HBoxContainer" parent="Root" unique_id=276202224]
 layout_mode = 2
 
-[node name="HostButton" type="Button" parent="Root/Actions"]
+[node name="HostButton" type="Button" parent="Root/Actions" unique_id=793060493]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Host"
 
-[node name="CodeEdit" type="LineEdit" parent="Root/Actions"]
+[node name="CodeEdit" type="LineEdit" parent="Root/Actions" unique_id=1033910616]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 placeholder_text = "Join code"
 secret_character = "*"
 
-[node name="PasteButton" type="Button" parent="Root/Actions"]
+[node name="PasteButton" type="Button" parent="Root/Actions" unique_id=1595918629]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Paste a join code from the clipboard"
 text = "Paste"
 
-[node name="JoinButton" type="Button" parent="Root/Actions"]
+[node name="JoinButton" type="Button" parent="Root/Actions" unique_id=280219766]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Join"
 
-[node name="Separator" type="HSeparator" parent="Root"]
+[node name="Separator" type="HSeparator" parent="Root" unique_id=2105711598]
 layout_mode = 2
 
-[node name="CodeRow" type="HBoxContainer" parent="Root"]
+[node name="CodeRow" type="HBoxContainer" parent="Root" unique_id=1945301212]
 layout_mode = 2
 
-[node name="CodeLabel" type="Label" parent="Root/CodeRow"]
+[node name="CodeLabel" type="Label" parent="Root/CodeRow" unique_id=1299814185]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 
-[node name="CopyButton" type="Button" parent="Root/CodeRow"]
+[node name="CopyButton" type="Button" parent="Root/CodeRow" unique_id=212406306]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 tooltip_text = "Copy the join code to the clipboard"
 text = "Copy"
 
-[node name="HideCodeButton" type="CheckButton" parent="Root/CodeRow"]
+[node name="HideCodeButton" type="CheckButton" parent="Root/CodeRow" unique_id=1113487663]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 tooltip_text = "Mask the join code, for streaming or screenshots"
 text = "Hide code"
 
-[node name="SealButton" type="CheckBox" parent="Root/CodeRow"]
+[node name="SealButton" type="CheckBox" parent="Root/CodeRow" unique_id=676775615]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 4
 text = "Sealed"
 
-[node name="StatusLabel" type="Label" parent="Root"]
+[node name="StatusLabel" type="Label" parent="Root" unique_id=1786640265]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="PlayerRoster" type="VBoxContainer" parent="Root"]
+[node name="PlayerRoster" type="VBoxContainer" parent="Root" unique_id=683340049]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Footer" type="HBoxContainer" parent="Root"]
+[node name="ChatLog" type="RichTextLabel" parent="Root" unique_id=163883666]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 2
+scroll_following = true
+selection_enabled = true
+
+[node name="ChatRow" type="HBoxContainer" parent="Root" unique_id=58156480]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ReadyButton" type="CheckBox" parent="Root/Footer"]
+[node name="ChatEdit" type="LineEdit" parent="Root/ChatRow" unique_id=1249322414]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Say something"
+max_length = 200
+keep_editing_on_text_submit = true
+
+[node name="ChatSendButton" type="Button" parent="Root/ChatRow" unique_id=1482049140]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Send"
+
+[node name="Footer" type="HBoxContainer" parent="Root" unique_id=1520876011]
+layout_mode = 2
+
+[node name="ReadyButton" type="CheckBox" parent="Root/Footer" unique_id=905146898]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Ready"
 
-[node name="LeaveButton" type="Button" parent="Root/Footer"]
+[node name="LeaveButton" type="Button" parent="Root/Footer" unique_id=1365586333]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Leave"
@@ -137,5 +163,7 @@ text = "Leave"
 [connection signal="pressed" from="Root/CodeRow/CopyButton" to="." method="_on_copy_button_pressed"]
 [connection signal="toggled" from="Root/CodeRow/HideCodeButton" to="." method="_on_hide_code_button_toggled"]
 [connection signal="toggled" from="Root/CodeRow/SealButton" to="." method="_on_seal_button_toggled"]
+[connection signal="text_submitted" from="Root/ChatRow/ChatEdit" to="." method="_on_chat_edit_text_submitted"]
+[connection signal="pressed" from="Root/ChatRow/ChatSendButton" to="." method="_on_chat_send_button_pressed"]
 [connection signal="toggled" from="Root/Footer/ReadyButton" to="." method="_on_ready_button_toggled"]
 [connection signal="pressed" from="Root/Footer/LeaveButton" to="." method="_on_leave_button_pressed"]
