@@ -1,0 +1,141 @@
+[gd_scene load_steps=2 format=3 uid="uid://bn2f6cvumene2"]
+
+[ext_resource type="Script" uid="uid://cch00bkgtbux1" path="res://demo/main.gd" id="1_main"]
+
+[node name="Main" type="Control" unique_id=1248851346]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Root"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "EasyLobby demo"
+
+[node name="NameEdit" type="LineEdit" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Your name"
+
+[node name="ModeRow" type="HBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ModeLabel" type="Label" parent="Root/ModeRow"]
+layout_mode = 2
+text = "Connection:"
+
+[node name="ModeOption" type="OptionButton" parent="Root/ModeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Auto: try the local network first, then noray.
+noray only: skip the LAN shortcut, so punchthrough and relay get exercised.
+LAN only: no noray at all, and everyone must be on this network."
+
+[node name="Actions" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="HostButton" type="Button" parent="Root/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Host"
+
+[node name="CodeEdit" type="LineEdit" parent="Root/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+placeholder_text = "Join code"
+secret_character = "*"
+
+[node name="PasteButton" type="Button" parent="Root/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Paste a join code from the clipboard"
+text = "Paste"
+
+[node name="JoinButton" type="Button" parent="Root/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Join"
+
+[node name="Separator" type="HSeparator" parent="Root"]
+layout_mode = 2
+
+[node name="CodeRow" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="CodeLabel" type="Label" parent="Root/CodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+
+[node name="CopyButton" type="Button" parent="Root/CodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Copy the join code to the clipboard"
+text = "Copy"
+
+[node name="HideCodeButton" type="CheckButton" parent="Root/CodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Mask the join code, for streaming or screenshots"
+text = "Hide code"
+
+[node name="SealButton" type="CheckBox" parent="Root/CodeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "Sealed"
+
+[node name="StatusLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="PlayerRoster" type="VBoxContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Footer" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+
+[node name="ReadyButton" type="CheckBox" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Ready"
+
+[node name="LeaveButton" type="Button" parent="Root/Footer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Leave"
+
+[connection signal="item_selected" from="Root/ModeRow/ModeOption" to="." method="_on_mode_option_item_selected"]
+[connection signal="pressed" from="Root/Actions/HostButton" to="." method="_on_host_button_pressed"]
+[connection signal="text_submitted" from="Root/Actions/CodeEdit" to="." method="_on_code_edit_text_submitted"]
+[connection signal="pressed" from="Root/Actions/PasteButton" to="." method="_on_paste_button_pressed"]
+[connection signal="pressed" from="Root/Actions/JoinButton" to="." method="_on_join_button_pressed"]
+[connection signal="pressed" from="Root/CodeRow/CopyButton" to="." method="_on_copy_button_pressed"]
+[connection signal="toggled" from="Root/CodeRow/HideCodeButton" to="." method="_on_hide_code_button_toggled"]
+[connection signal="toggled" from="Root/CodeRow/SealButton" to="." method="_on_seal_button_toggled"]
+[connection signal="toggled" from="Root/Footer/ReadyButton" to="." method="_on_ready_button_toggled"]
+[connection signal="pressed" from="Root/Footer/LeaveButton" to="." method="_on_leave_button_pressed"]
