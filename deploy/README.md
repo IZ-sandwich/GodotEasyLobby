@@ -36,7 +36,7 @@ on Windows or macOS. On Linux, `docker compose up` from this directory should wo
 
 Example setup:
 ```sh
-scp -r deploy/ you@your-server:~/noray/
+scp -r deploy/. you@your-server:~/noray/
 ssh you@your-server
 cd ~/noray && docker compose up -d
 ```
@@ -47,7 +47,7 @@ Then you'll need to open the firewall, example settings in table below. You may 
 | --- | --- | --- |
 | 8890 | TCP | Control channel - clients register and request connections |
 | 8809 | UDP | Registrar - clients announce their public address |
-| 49152–51200 | UDP | Relay ports, one per relayed peer |
+| 49152-51200 | UDP | Relay ports, one per relayed peer |
 
 Then configure the game to point at the noray server: **Project Settings -> Easy Lobby -> Noray -> Host**.
 

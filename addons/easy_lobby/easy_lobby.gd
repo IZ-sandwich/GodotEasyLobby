@@ -97,12 +97,20 @@ var _local_name: String = ""
 var _busy: bool = false
 var _noray: EasyLobbyNorayConnection
 
+## Opus voice chat over the same connection. Always present, but inert unless the
+## TwoVoip GDExtension is installed - see [EasyLobbyVoiceChat].
+var voice: EasyLobbyVoiceChat
+
 
 func _ready() -> void:
 	_noray = EasyLobbyNorayConnection.new()
 	_noray.name = "NorayConnection"
 	_noray.stage_changed.connect(func(stage: String) -> void: connect_progress.emit(stage))
 	add_child(_noray)
+
+	voice = EasyLobbyVoiceChat.new()
+	voice.name = "VoiceChat"
+	add_child(voice)
 
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
@@ -263,8 +271,8 @@ func send_chat(text: String) -> void:
 
 ## The chat backlog, oldest first, at most [constant MAX_CHAT_MESSAGES] entries.
 ##
-## Each message is a dictionary of [code]peer_id[/code], [code]player_name[/code]
-## and [code]text[/code]. The name is stored per message rather than looked up,
+## Each message is a dictionary of `peer_id`, `player_name`
+## and `text`. The name is stored per message rather than looked up,
 ## so the backlog still reads correctly once a player has left.
 func get_chat_messages() -> Array[Dictionary]:
 	return _chat.duplicate()

@@ -71,12 +71,11 @@ func stop() -> void:
 
 ## Client side: look for a host on this network serving [param code].
 ##
-## Returns a [Dictionary] of `{"address": String, "port": int}`, or [code]null[/code]
+## Returns a [Dictionary] of `{"address": String, "port": int}`, or `null`
 ## if nobody answered within [param timeout].
 ##
 ## This runs on every join, including ones that will end up going through noray,
-## so [param timeout] is a direct cost on the common path. A local subnet round
-## trip is a couple of milliseconds; keep it well under a second.
+## so [param timeout] is a cost on the common internet gameplay path.
 func find_host(
 	code: String, discovery_port: int, timeout: float, interval := 0.1
 ) -> Variant:

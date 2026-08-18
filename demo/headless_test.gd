@@ -5,6 +5,10 @@ extends Node
 ##   godot --headless --path . res://demo/headless_test.tscn -- host
 ##   godot --headless --path . res://demo/headless_test.tscn -- join ABCDEF
 ##
+## The "filter" and "voice" roles are self-contained and need no second instance.
+## Run "voice" without --headless (use --display-driver headless) to get a real
+## audio driver and more than one device to switch between.
+##
 ## Prints machine-readable lines (CODE=, ROSTER=, OK, FAIL=) so a shell script
 ## can drive both sides and assert on the result.
 
@@ -55,6 +59,9 @@ func _ready() -> void:
 				_fail("join_lobby:" + error_string(err))
 		"filter":
 			_check_filter()
+			get_tree().quit(0)
+		"voice":
+			_check_voice()
 			get_tree().quit(0)
 		"retry":
 			# Regression cover for the stale-registration bug: a failed join used
@@ -186,6 +193,71 @@ func _check_backlog(expect_first: String, expect_last: String) -> void:
 		_fail("backlog holds %d, expected %d" % [messages.size(), EasyLobby.MAX_CHAT_MESSAGES])
 	elif first != expect_first or last != expect_last:
 		_fail("backlog runs %s..%s, expected %s..%s" % [first, last, expect_first, expect_last])
+
+
+## Assert the voice device and push-to-talk API with TwoVoip absent, which is the
+## configuration a machine without the extension can still cover: all of this is
+## AudioServer and local state, so none of it needs a microphone or a lobby.
+##
+## Under --headless the audio driver is a dummy with one device called "Default",
+## so the interesting assertions here are the ones about refusing a bogus name
+## and about not reading a device back off AudioServer, which only reports what
+## the driver currently has open.
+func _check_voice() -> void:
+	var voice: EasyLobbyVoiceChat = EasyLobby.voice
+	var failures := 0
+
+	print("VOICE_AVAILABLE=", EasyLobbyVoiceChat.is_available())
+	print("VOICE_INPUTS=", ", ".join(voice.get_input_devices()))
+	print("VOICE_OUTPUTS=", ", ".join(voice.get_output_devices()))
+
+	# A name that is not on the list has to be refused. AudioServer would take it
+	# and quietly fall back to "Default", which looks like the switch worked.
+	var input_before: String = voice.get_input_device()
+	voice.set_input_device("no such microphone")
+	if voice.get_input_device() != input_before:
+		print("VOICE_BAD= a bogus microphone changed the selection")
+		failures += 1
+
+	var output_before: String = voice.get_output_device()
+	voice.set_output_device("no such speaker")
+	if voice.get_output_device() != output_before:
+		print("VOICE_BAD= a bogus speaker changed the selection")
+		failures += 1
+
+	# Every real device has to read back, "Default" included, or a settings menu
+	# cannot show the player what they picked.
+	for device in voice.get_input_devices():
+		voice.set_input_device(device)
+		if voice.get_input_device() != device:
+			print("VOICE_BAD= microphone did not stick: ", device)
+			failures += 1
+	for device in voice.get_output_devices():
+		voice.set_output_device(device)
+		if voice.get_output_device() != device:
+			print("VOICE_BAD= speaker did not stick: ", device)
+			failures += 1
+
+	voice.set_input_device(input_before)
+	voice.set_output_device(output_before)
+
+	# Push-to-talk is local state, so it answers with TwoVoip missing too.
+	voice.set_push_to_talk(true)
+	voice.set_push_to_talk_held(true)
+	if not voice.is_push_to_talk() or not voice.is_push_to_talk_held():
+		print("VOICE_BAD= push-to-talk did not take")
+		failures += 1
+
+	# Leaving push-to-talk has to drop a held key with it, or the mic would sit
+	# open the moment voice activation takes over.
+	voice.set_push_to_talk(false)
+	if voice.is_push_to_talk() or voice.is_push_to_talk_held():
+		print("VOICE_BAD= leaving push-to-talk left it talking")
+		failures += 1
+
+	print("VOICE_FAILURES=", failures)
+	if failures == 0:
+		print("OK")
 
 
 ## Assert EasyLobbyCodeFilter accepts ordinary codes and rejects ugly ones.

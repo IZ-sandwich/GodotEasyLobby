@@ -4,5 +4,9 @@
 
 /addons/netfox.internals/
 /addons/netfox.noray/
+/addons/twovoip/
 
 .claude
+
+build/
+export_presets.cfg

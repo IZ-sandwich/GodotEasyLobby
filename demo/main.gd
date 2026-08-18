@@ -29,6 +29,11 @@ const MODE_HINTS := {
 	Mode.LAN_ONLY: "No noray. Everyone must be on this network.",
 }
 
+## Hold to transmit with push-to-talk on. A hard-coded key rather than an input
+## action, so the demo does not have to ship an InputMap entry. PushToTalkButton's
+## tooltip in main.tscn names it, so change both together.
+const PUSH_TO_TALK_KEY := KEY_V
+
 @onready var _local_player_name_line_edit: LineEdit = %NameEdit
 @onready var _lobby_code_line_edit: LineEdit = %CodeEdit
 @onready var _mode_row: HBoxContainer = %ModeRow
@@ -48,6 +53,15 @@ const MODE_HINTS := {
 @onready var _chat_row: HBoxContainer = %ChatRow
 @onready var _chat_line_edit: LineEdit = %ChatEdit
 
+## The voice row. Hidden wholesale when TwoVoip is not installed, which is the
+## only reason any of it is optional - see _refresh_voice().
+@onready var _voice_row: HFlowContainer = %VoiceRow
+@onready var _input_device_option: OptionButton = %InputDeviceOption
+@onready var _output_device_option: OptionButton = %OutputDeviceOption
+@onready var _mic_button: CheckButton = %MicButton
+@onready var _push_to_talk_button: CheckButton = %PushToTalkButton
+@onready var _talk_button: Button = %TalkButton
+
 
 func _ready() -> void:
 	_local_player_name_line_edit.text = "Player%d" % (randi() % 900 + 100)
@@ -55,6 +69,18 @@ func _ready() -> void:
 	for mode in MODE_LABELS:
 		_mode_option.add_item(MODE_LABELS[mode], mode)
 	_mode_option.selected = Mode.AUTO
+
+	# The one part of the voice row the scene cannot hold: the device lists come
+	# from the OS, and are rebuilt every time a picker is opened rather than once
+	# here, since headsets get plugged in and pulled out while the game runs.
+	# about_to_popup is on the popup rather than on the button, so it cannot be
+	# wired up in the scene either.
+	_input_device_option.get_popup().about_to_popup.connect(_refresh_input_devices)
+	_output_device_option.get_popup().about_to_popup.connect(_refresh_output_devices)
+	_refresh_input_devices()
+	_refresh_output_devices()
+
+	EasyLobby.voice.speaking_changed.connect(func(_id: int, _talking: bool) -> void: _refresh())
 
 	EasyLobby.lobby_created.connect(_on_lobby_created)
 	EasyLobby.lobby_joined.connect(_on_lobby_joined)
@@ -152,6 +178,80 @@ func _send_chat() -> void:
 	_chat_line_edit.grab_focus()
 
 
+# --- Voice --------------------------------------------------------------------
+
+
+func _on_mic_button_toggled(toggled_on: bool) -> void:
+	EasyLobby.voice.set_muted(not toggled_on)
+
+
+func _on_push_to_talk_button_toggled(toggled_on: bool) -> void:
+	EasyLobby.voice.set_push_to_talk(toggled_on)
+	if toggled_on:
+		_set_status(
+			"Push to talk: hold Talk, or %s while the chat box is not focused."
+			% OS.get_keycode_string(PUSH_TO_TALK_KEY)
+		)
+	else:
+		_set_status("Voice activation: the mic opens when you speak.")
+	_refresh()
+
+
+func _on_talk_button_button_down() -> void:
+	EasyLobby.voice.set_push_to_talk_held(true)
+
+
+func _on_talk_button_button_up() -> void:
+	EasyLobby.voice.set_push_to_talk_held(false)
+
+
+func _on_input_device_option_item_selected(index: int) -> void:
+	EasyLobby.voice.set_input_device(_input_device_option.get_item_text(index))
+
+
+func _on_output_device_option_item_selected(index: int) -> void:
+	EasyLobby.voice.set_output_device(_output_device_option.get_item_text(index))
+
+
+func _refresh_input_devices() -> void:
+	var devices: PackedStringArray = EasyLobby.voice.get_input_devices()
+	var current: String = EasyLobby.voice.get_input_device()
+	_fill_device_option(_input_device_option, devices, current)
+
+
+func _refresh_output_devices() -> void:
+	var devices: PackedStringArray = EasyLobby.voice.get_output_devices()
+	var current: String = EasyLobby.voice.get_output_device()
+	_fill_device_option(_output_device_option, devices, current)
+
+
+## Rebuild a device dropdown, leaving [param current] as the selected entry.
+func _fill_device_option(
+	option: OptionButton, devices: PackedStringArray, current: String
+) -> void:
+	option.clear()
+	for device in devices:
+		option.add_item(device)
+		# select() rather than letting add_item() pick, and neither one emits, so
+		# this only mirrors a choice that has already taken effect.
+		if device == current:
+			option.select(option.item_count - 1)
+
+
+## Push-to-talk on a key as well as on the Talk button. Unhandled input only, so
+## typing a "v" into the chat box does not open the microphone.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not EasyLobby.voice.is_push_to_talk():
+		return
+
+	var key := event as InputEventKey
+	if key == null or key.echo or key.keycode != PUSH_TO_TALK_KEY:
+		return
+
+	EasyLobby.voice.set_push_to_talk_held(key.pressed)
+	get_viewport().set_input_as_handled()
+
+
 # --- Signal handlers ----------------------------------------------------------
 
 
@@ -216,6 +316,7 @@ func _refresh() -> void:
 	_leave_button.visible = in_lobby
 	_chat_log.visible = in_lobby
 	_chat_row.visible = in_lobby
+	_refresh_voice()
 	_refresh_chat()
 
 	for child in _player_roster.get_children():
@@ -234,6 +335,8 @@ func _refresh() -> void:
 			tags.append("host")
 		if player.peer_id == local_id:
 			tags.append("you")
+		if EasyLobby.voice.is_speaking(player.peer_id):
+			tags.append("talking")
 		label.text = "%s %s %s" % [
 			"[x]" if player.is_ready else "[ ]",
 			player.player_name,
@@ -254,6 +357,28 @@ func _refresh() -> void:
 		var note := Label.new()
 		note.text = "Everyone is ready."
 		_player_roster.add_child(note)
+
+
+## Unlike the rest of the UI this stays up outside a lobby: picking a microphone
+## before joining is the normal way round, and the addon honours a device, a mute
+## and a push-to-talk choice made while voice is not running.
+func _refresh_voice() -> void:
+	# Installed, and either set to open the mic on joining or already running -
+	# a game that turned the setting off and never calls start() has no voice to
+	# configure, so there is nothing to show.
+	var opens_on_join: bool = ProjectSettings.get_setting("easy_lobby/voice/enabled", true)
+	_voice_row.visible = (
+		EasyLobbyVoiceChat.is_available() and (opens_on_join or EasyLobby.voice.is_active())
+	)
+	if not _voice_row.visible:
+		return
+
+	# Read back rather than assumed: the addon starts from the project settings,
+	# and mute or push-to-talk may have been set from code as well as from here.
+	_mic_button.set_pressed_no_signal(not EasyLobby.voice.is_muted())
+	_push_to_talk_button.set_pressed_no_signal(EasyLobby.voice.is_push_to_talk())
+	_talk_button.visible = EasyLobby.voice.is_push_to_talk()
+	_talk_button.disabled = not EasyLobby.voice.is_active()
 
 
 ## Redraw the whole backlog rather than appending to it, since the addon drops

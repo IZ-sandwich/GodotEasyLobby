@@ -40,6 +40,30 @@ var SETTINGS := [
 	{"name": "easy_lobby/timeouts/register_retries", "value": 3, "type": TYPE_INT},
 	# Prints every step of registration and the connect ladder.
 	{"name": "easy_lobby/debug/verbose_logging", "value": false, "type": TYPE_BOOL},
+	
+	# --- Voice chat. All of it is ignored unless TwoVoip is installed. ---
+	
+	# Open the microphone on entering a lobby. Turn this off to ask the player
+	# first and call EasyLobby.voice.start() yourself.
+	{"name": "easy_lobby/voice/enabled", "value": true, "type": TYPE_BOOL},
+	# Mono. No need to change this.
+	{"name": "easy_lobby/voice/channels", "value": 1, "type": TYPE_INT},
+	# The one setting that decides bandwidth. Can be improved to 24k if you want better quality.
+	{"name": "easy_lobby/voice/bitrate", "value": 12000, "type": TYPE_INT},
+	# Milliseconds of audio per packet. Lower is more responsive but spends more
+	# on headers, which already dominate at these bitrates.
+	{"name": "easy_lobby/voice/frame_ms", "value": 20, "type": TYPE_INT},
+	# 48kHz is what Opus and the denoiser work at natively, so anything else costs a resample.
+	{"name": "easy_lobby/voice/sample_rate", "value": 48000, "type": TYPE_INT},
+	# Opus encoder complexity, 0-10. Higher is better quality but costs more CPU.
+	{"name": "easy_lobby/voice/complexity", "value": 5, "type": TYPE_INT},
+	# TwoVoip's RNNoise filter.
+	{"name": "easy_lobby/voice/denoise", "value": true, "type": TYPE_BOOL},
+	# How loud speech has to be to open the microphone without push to talk, 0 to 1.
+	{"name": "easy_lobby/voice/vox_threshold", "value": 0.07, "type": TYPE_FLOAT},
+	# Off means voice activation. On means the game drives
+	# EasyLobby.voice.set_talking() from an input action.
+	{"name": "easy_lobby/voice/push_to_talk", "value": false, "type": TYPE_BOOL},
 ]
 
 

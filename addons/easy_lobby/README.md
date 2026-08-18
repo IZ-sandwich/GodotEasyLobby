@@ -1,11 +1,11 @@
 # EasyLobby
 
 Code-based peer-to-peer multiplayer for Godot 4. Host a lobby, get a 6-character
-join code, share it. **No port forwarding, and no game server** - the only
+join code, share it. No port forwarding, and no game server - the only
 infrastructure is one small [noray](https://github.com/foxssake/noray) instance
 that introduces peers and relays for the minority who can't connect directly.
 Players on the same network find each other by broadcast and skip noray
-or skip noray altogether by using a [LAN-only lobby](#lan-only-lobbies).
+or skip noray altogether by using a [LAN-only lobby](#lan-only-lobbies). Also optionally VoIP can be enabled in the lobby.
 
 Once peers are connected, noray is out of the data path entirely.
 
@@ -26,10 +26,10 @@ This repository has been developed with the use of an LLM and I've rewritten par
 
 ## Setup
 
-1. Install the addons and enable them in this order: **netfox.internals**,
-   **netfox.noray**, **EasyLobby**.
-2. Stand up noray - see [`deploy/`](../../deploy/README.md).
-3. Point the game at the noray host: **Project Settings -> Easy Lobby -> Noray -> Host**.
+1. Install the addons and enable them in this order: netfox.internals, netfox.noray, EasyLobby.
+2. (Optional) Install [TwoVoip](https://github.com/goatchurchprime/two-voip-godot-4) addon and GDExtension if you want VoIP.
+3. Stand up noray - see [`deploy/`](../../deploy/README.md).
+4. Point the game at the noray host: **Project Settings -> Easy Lobby -> Noray -> Host**.
 
 ## Trying it out
 
@@ -82,6 +82,24 @@ Failure reasons are constants:
 
 `EasyLobbyPlayer` carries `peer_id`, `player_name`, `is_ready` and `custom`,
 which replicate on update.
+
+## Voice chat (optional)
+
+Opus voice over the same connection, on `EasyLobby.voice`. It needs the
+[TwoVoip](https://github.com/goatchurchprime/two-voip-godot-4) GDExtension
+(v5+, Godot 4.6+) installed at `addons/twovoip/`. Easy lobby can work fine without it.
+
+It also needs **Project Settings -> Audio -> Driver -> Enable Input** on.
+
+### Cost
+
+An Opus stream is roughly 3-5 KB/s including packet overhead. Voice is broadcast and would be ~200 KB/s in a full 8-player lobby at worst case of everyone speaking. Voice activation means that the worst case is rare but a relayed host could start being throttled by noray `NORAY_UDP_RELAY_MAX_INDIVIDUAL_TRAFFIC` (default `128kb`, bytes/sec). That throttle hits the game traffic sharing the connection with voice. Test with your game and raise the cap if necessary.
+
+### Known limitations
+
+- No echo cancellation - RNNoise removes background noise, not sound from other
+  players coming back in through your own microphone. Headphones, or push-to-talk.
+- TwoVoip is a GDExtension, so it has to be installed per platform and is the reason voip is optional.
 
 # How it works
 

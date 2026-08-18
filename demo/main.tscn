@@ -116,6 +116,55 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="VoiceRow" type="HFlowContainer" parent="Root" unique_id=1704225891]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="InputDeviceLabel" type="Label" parent="Root/VoiceRow" unique_id=1704225892]
+layout_mode = 2
+text = "Mic:"
+
+[node name="InputDeviceOption" type="OptionButton" parent="Root/VoiceRow" unique_id=1704225893]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+tooltip_text = "Which microphone to capture from."
+clip_text = true
+fit_to_longest_item = false
+
+[node name="OutputDeviceLabel" type="Label" parent="Root/VoiceRow" unique_id=1704225894]
+layout_mode = 2
+text = "Output:"
+
+[node name="OutputDeviceOption" type="OptionButton" parent="Root/VoiceRow" unique_id=1704225895]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+tooltip_text = "Where voice plays out. Godot mixes everything to one output device,
+so this moves the whole game's audio, not just voice."
+clip_text = true
+fit_to_longest_item = false
+
+[node name="MicButton" type="CheckButton" parent="Root/VoiceRow" unique_id=1704225896]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Stop transmitting. Everyone else is still audible."
+button_pressed = true
+text = "Mic on"
+
+[node name="PushToTalkButton" type="CheckButton" parent="Root/VoiceRow" unique_id=1704225897]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Off: the mic opens on its own once you are loud enough.
+On: hold Talk, or the V key. Named in PUSH_TO_TALK_KEY in main.gd."
+text = "Push to talk"
+
+[node name="TalkButton" type="Button" parent="Root/VoiceRow" unique_id=1704225898]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Hold to transmit or press \"V\" key."
+text = "Talk"
+
 [node name="ChatLog" type="RichTextLabel" parent="Root" unique_id=163883666]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 140)
@@ -163,6 +212,12 @@ text = "Leave"
 [connection signal="pressed" from="Root/CodeRow/CopyButton" to="." method="_on_copy_button_pressed"]
 [connection signal="toggled" from="Root/CodeRow/HideCodeButton" to="." method="_on_hide_code_button_toggled"]
 [connection signal="toggled" from="Root/CodeRow/SealButton" to="." method="_on_seal_button_toggled"]
+[connection signal="item_selected" from="Root/VoiceRow/InputDeviceOption" to="." method="_on_input_device_option_item_selected"]
+[connection signal="item_selected" from="Root/VoiceRow/OutputDeviceOption" to="." method="_on_output_device_option_item_selected"]
+[connection signal="toggled" from="Root/VoiceRow/MicButton" to="." method="_on_mic_button_toggled"]
+[connection signal="toggled" from="Root/VoiceRow/PushToTalkButton" to="." method="_on_push_to_talk_button_toggled"]
+[connection signal="button_down" from="Root/VoiceRow/TalkButton" to="." method="_on_talk_button_button_down"]
+[connection signal="button_up" from="Root/VoiceRow/TalkButton" to="." method="_on_talk_button_button_up"]
 [connection signal="text_submitted" from="Root/ChatRow/ChatEdit" to="." method="_on_chat_edit_text_submitted"]
 [connection signal="pressed" from="Root/ChatRow/ChatSendButton" to="." method="_on_chat_send_button_pressed"]
 [connection signal="toggled" from="Root/Footer/ReadyButton" to="." method="_on_ready_button_toggled"]
