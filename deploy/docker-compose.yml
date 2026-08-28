@@ -1,6 +1,6 @@
 # Production noray, for a Linux VPS.
 #
-# Uses host networking on purpose. noray needs 2048 UDP relay ports, and
+# Uses host networking on purpose. noray needs 1024 UDP relay ports, and
 # publishing that many through Docker's userland proxy makes `docker compose up`
 # take minutes and wastes memory. Host networking hands them over for free.
 #
@@ -14,22 +14,33 @@
 # There is no arm64 image. On ARM hosts comment out `image:` below and uncomment
 # the `build:` block. noray's Dockerfile is FROM oven/bun:1, which IS multi-arch
 # and noray has no native dependencies, so it builds and runs natively on arm64.
-
-services:
-  noray:
-    image: ghcr.io/foxssake/noray:main
-    # build:
-    #   context: "https://github.com/foxssake/noray.git#main"
-    container_name: noray
-    restart: unless-stopped
-    network_mode: host
-    env_file:
-      - noray.env
-
+#
 # Open these on the VPS firewall:
 #   TCP 8890            control channel (clients register and request connections)
 #   UDP 8809            registrar (clients announce their public address)
-#   UDP 49152-51200     relay ports
+#   UDP 61000-62023     relay ports
 #
 # Leave TCP 8891 (metrics) closed to the internet, or bind it to localhost and
 # reach it over an SSH tunnel. It is unauthenticated.
+#
+# -- Quick reference --
+# Bring up all:      docker compose up -d
+# One game only:     docker compose up -d noray-game-1
+# Logs:              docker compose logs -f noray-game-1
+# Tear down:         docker compose down
+
+services:
+  # Repeat this config if you want to run multiple games.
+  # Make sure to create a new .env config with different ports and port ranges for each.
+  noray-game-1:
+    image: ghcr.io/foxssake/noray:main
+    # build:
+    #   context: "https://github.com/foxssake/noray.git#main"
+    container_name: noray-game-1
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      # Order matters: everything shared comes from noray.env, and the
+      # per-game file overrides only what has to differ.
+      - noray.env
+      - game-1.env

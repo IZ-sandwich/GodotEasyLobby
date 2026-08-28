@@ -14,19 +14,22 @@ const EasyLobbyScript := preload("res://addons/easy_lobby/easy_lobby.gd")
 enum Mode {
 	AUTO,  ## LAN first, then punchthrough, then relay.
 	NORAY_ONLY,
+	RELAY_ONLY,
 	LAN_ONLY,
 }
 
 const MODE_LABELS := {
 	Mode.AUTO: "Auto (LAN, then noray)",
 	Mode.NORAY_ONLY: "noray only",
+	Mode.RELAY_ONLY: "Relay only (testing only)",
 	Mode.LAN_ONLY: "LAN only (offline)",
 }
 
 const MODE_HINTS := {
 	Mode.AUTO: "Tries the local network first, then noray.",
 	Mode.NORAY_ONLY: "Only noray's punchthrough or relay.",
-	Mode.LAN_ONLY: "No noray. Everyone must be on this network.",
+	Mode.RELAY_ONLY: "Forces noray's relay, so it can be tested without a hostile NAT. Everyone must be on this network to work.",
+	Mode.LAN_ONLY: "No noray. Everyone must be on this network to work.",
 }
 
 ## Hold to transmit with push-to-talk on. A hard-coded key rather than an input
@@ -273,6 +276,7 @@ func _on_join_failed(reason: String) -> void:
 		EasyLobby.JOIN_UNREACHABLE: "Found the lobby, but couldn't connect.",
 		EasyLobby.JOIN_FULL: "That lobby is full.",
 		EasyLobby.JOIN_SEALED: "That lobby has already started.",
+		EasyLobby.JOIN_WRONG_GAME_ID: "That lobby is a different game, or a different version of it.",
 	}
 	_set_status(messages.get(reason, reason))
 	_refresh()
@@ -403,10 +407,13 @@ func _refresh_code_display() -> void:
 
 ## Push the selected mode into the addon, and report whether it is the offline one.
 ##
-## easy_lobby re-reads the LAN setting on every create/join
+## easy_lobby re-reads both settings on every create/join.
 func _apply_mode() -> bool:
 	var mode := _mode_option.get_selected_id()
-	ProjectSettings.set_setting("easy_lobby/lan/enabled", mode != Mode.NORAY_ONLY)
+	ProjectSettings.set_setting(
+		"easy_lobby/lan/enabled", mode != Mode.NORAY_ONLY and mode != Mode.RELAY_ONLY
+	)
+	ProjectSettings.set_setting("easy_lobby/debug/force_relay", mode == Mode.RELAY_ONLY)
 	return mode == Mode.LAN_ONLY
 
 

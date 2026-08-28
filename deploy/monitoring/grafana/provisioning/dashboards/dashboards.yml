@@ -1,0 +1,21 @@
+# Tells Grafana to load dashboard JSON files from a directory at startup,
+# instead of you importing them through the UI.
+
+apiVersion: 1
+
+providers:
+  - name: noray
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    # Re-reads the directory this often, so editing noray.json on the VPS shows
+    # up without restarting Grafana.
+    updateIntervalSeconds: 30
+    # Lets you tweak panels in the browser and hit Save. Those edits live in
+    # Grafana's database and win over the file. To go back to the version in
+    # git, delete the dashboard in the UI and it gets re-provisioned.
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

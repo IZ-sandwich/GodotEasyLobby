@@ -49,6 +49,7 @@ const JOIN_NOT_FOUND := "not_found"
 const JOIN_UNREACHABLE := "unreachable"
 const JOIN_FULL := "full"
 const JOIN_SEALED := "sealed"
+const JOIN_WRONG_GAME_ID := "wrong_game_id"
 
 const CLOSED_HOST_LEFT := "host_left"
 const CLOSED_KICKED := "kicked"
@@ -206,10 +207,10 @@ func join_lobby(join_code: String, player_name: String, offline := false) -> Err
 	code = normalized
 	_busy = false
 
-	# The host decides whether we are actually allowed in; lobby_joined waits
+	# The host decides whether we are actually allowed in. lobby_joined waits
 	# for the roster it sends back. 
 	# Expect either a "_sync_lobby" or "_reject" rpc as a response
-	_request_join.rpc_id(1, player_name)
+	_request_join.rpc_id(1, player_name, get_game_id())
 	return OK
 
 
@@ -307,6 +308,21 @@ func all_ready() -> bool:
 	return _players.values().all(func(p: EasyLobbyPlayer) -> bool: return p.is_ready)
 
 
+## What this build calls itself in the join handshake, as "id@version".
+## Falls back to project name if no id is assigned.
+static func get_game_id() -> String:
+	var configured := str(
+		ProjectSettings.get_setting("easy_lobby/lobby/game_id", "")
+	).strip_edges()
+	if configured.is_empty():
+		configured = str(ProjectSettings.get_setting("application/config/name", "easy_lobby"))
+
+	var version := str(
+		ProjectSettings.get_setting("application/config/version", "")
+	).strip_edges()
+	return configured if version.is_empty() else configured + "@" + version
+
+
 ## Tidy up a typed code: strip spaces, dashes, and uppercase it.
 static func normalize_code(raw: String) -> String:
 	return raw.strip_edges().replace(" ", "").replace("-", "").to_upper()
@@ -340,10 +356,18 @@ static func is_valid_code(candidate: String) -> bool:
 
 
 @rpc("any_peer", "call_remote", "reliable")
-func _request_join(player_name: String) -> void:
+func _request_join(player_name: String, game_id: String) -> void:
 	if not is_host:
 		return
 	var sender := multiplayer.get_remote_sender_id()
+
+	if game_id != get_game_id():
+		push_warning(
+			"EasyLobby: refused peer %d, it is running '%s' and we are '%s'."
+			% [sender, game_id, get_game_id()]
+		)
+		_reject_join(sender, JOIN_WRONG_GAME_ID)
+		return
 
 	if sealed:
 		_reject_join(sender, JOIN_SEALED)
@@ -489,6 +513,8 @@ func _configure_noray() -> void:
 		_get_setting("easy_lobby/lan/discovery_port", 8898),
 		_get_setting("easy_lobby/lan/discovery_timeout_sec", 0.6),
 		_get_setting("easy_lobby/timeouts/noray_connect_sec", 5.0),
+		get_game_id(),
+		_get_setting("easy_lobby/debug/force_relay", false),
 	)
 
 

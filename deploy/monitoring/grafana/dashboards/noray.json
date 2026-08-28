@@ -1,0 +1,536 @@
+{
+  "uid": "noray-overview",
+  "title": "noray",
+  "tags": ["noray", "easy-lobby"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "noray",
+      "description": "Prometheus sets this to 1 when its last scrape of the metrics endpoint succeeded. DOWN means noray is not answering - the container may be stopped or crashed.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red", "index": 0 },
+                "1": { "text": "UP", "color": "green", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"noray\"}", "legendFormat": "up" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Players connected",
+      "description": "Peers holding an open TCP control connection to noray. In EasyLobby both the host and every joiner register, so this counts players, not lobbies.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "expr": "noray_active_hosts", "legendFormat": "players" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Active relays",
+      "description": "Relay entries currently allocated. One per relayed peer, each holding one UDP port from the pool.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "center"
+      },
+      "targets": [
+        { "refId": "A", "expr": "noray_relay_count", "legendFormat": "relays" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Relay port usage",
+      "description": "Active relays as a share of the 1024-port pool. This is the ceiling you hit first - when it reaches 100%, new players who need relaying cannot be served. The 1024 is NORAY_UDP_RELAY_PORTS in noray.env; edit the query if you change that range.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "noray_relay_count / 1024 * 100",
+          "legendFormat": "port pool used"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Relayed bandwidth",
+      "description": "Bits per second noray is forwarding, averaged over 5 minutes. Each packet is counted once, so the traffic your VPS bill sees is roughly double this (it arrives, then leaves). Payload only: noray observes msg.byteLength, so the 28-byte IP+UDP header on every packet is billed by your VPS but not counted here.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_size_sum[5m]) * 8",
+          "legendFormat": "relayed"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Joins / min",
+      "description": "Successful first-time address registrations. Averaged over 5 minutes, shown per minute.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_remote_registrar_success[5m]) * 60",
+          "legendFormat": "joins/min"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Concurrent players and relays",
+      "description": "Players is everyone connected to noray. Relays is the subset being forwarded because a direct connection failed. The gap between the two lines is your punchthrough success.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        { "refId": "A", "expr": "noray_active_hosts", "legendFormat": "players connected" },
+        { "refId": "B", "expr": "noray_relay_count", "legendFormat": "active relays" }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Relayed bandwidth",
+      "description": "Only relayed traffic passes through noray. This is your relay cost, not your players' total traffic. Both lines count UDP payload only: noray observes msg.byteLength, so the 28 bytes of IP+UDP header on every packet are invisible here. Negligible for game packets, but not for voice - at 20ms frames the payload is around 30 bytes, so headers very nearly double the real wire cost.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_size_sum[5m]) * 8",
+          "legendFormat": "relayed (counted once)"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(noray_relay_size_sum[5m]) * 16",
+          "legendFormat": "approx. VPS traffic (in + out)"
+        }
+      ]
+    },
+
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Join activity (per minute)",
+      "description": "Successes are new peers. Repeats are peers re-registering an address they already had - the addon retries, so some are normal. Failures mean noray rejected the registration; this is what a player sees as a join timeout.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "failed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_remote_registrar_success[5m]) * 60",
+          "legendFormat": "succeeded"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(noray_remote_registrar_repeat[5m]) * 60",
+          "legendFormat": "repeated"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(noray_remote_registrar_fail[5m]) * 60",
+          "legendFormat": "failed"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Relayed packets / sec",
+      "description": "Packet rate through the relay. Together with bandwidth this tells you whether you are limited by throughput or by packet count.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_size_count[5m])",
+          "legendFormat": "packets relayed"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Problems",
+      "description": "Drops are packets arriving on a relay port with no matching entry in the relay table - a few around session start and end are normal, sustained drops are not. Registrar failures are rejected join handshakes.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "red", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_drop_count[5m])",
+          "legendFormat": "dropped packets/sec"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(noray_remote_registrar_fail[5m])",
+          "legendFormat": "registrar failures/sec"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Relays expiring / min",
+      "description": "Relays freed by the cleanup sweep after NORAY_UDP_RELAY_TIMEOUT of silence. Expiries at the end of a match are normal. A spike while players are still playing means their traffic stopped reaching noray.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "orange", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_expired[5m]) * 60",
+          "legendFormat": "relays expired"
+        }
+      ]
+    },
+
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Average relayed packet size",
+      "description": "Useful for capacity planning: multiply by packets/sec per player to sanity-check the bandwidth estimates in the deploy README.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_size_sum[5m]) / rate(noray_relay_size_count[5m])",
+          "legendFormat": "avg packet"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Average relay handler time",
+      "description": "CPU time noray spends handling one packet. It stays flat at tens of microseconds until the process is starved, so a rising line means noray is running out of CPU.",
+      "datasource": { "type": "prometheus", "uid": "noray-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 28 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "yellow", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": [] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(noray_relay_duration_sum[5m]) / rate(noray_relay_duration_count[5m])",
+          "legendFormat": "per packet"
+        }
+      ]
+    }
+  ]
+}

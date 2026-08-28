@@ -1,0 +1,66 @@
+# Monitoring for noray: Prometheus (stores metrics) + Grafana (draws them).
+#
+# Bring up:   docker compose up -d
+# Tear down:  docker compose down        (keeps recorded history)
+#             docker compose down -v     (deletes history)
+#
+# Nothing here is exposed to the internet. Prometheus and Grafana are both bound
+# to 127.0.0.1 explicitly, so the only way in is an SSH tunnel. Do NOT open 3000
+# or 9090 on the VPS firewall.
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: noray-prometheus
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # How long to keep history, and a hard disk cap so a small VPS can never
+      # be filled by metrics. Whichever limit is hit first wins.
+      - --storage.tsdb.retention.time=90d
+      - --storage.tsdb.retention.size=2GB
+      # Without this Prometheus would listen on every interface, and host
+      # networking means that includes your public IP.
+      - --web.listen-address=127.0.0.1:9090
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: noray-grafana
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - prometheus
+    volumes:
+      # Datasource + dashboard definitions, read at startup. This is what makes
+      # `docker compose up -d` enough - there is nothing to click through.
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      # Same reasoning as Prometheus' --web.listen-address.
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: 3000
+      # Read-only access without logging in. Safe because the port is loopback
+      # only, so anyone who can reach it already has SSH access to the box.
+      # Set to "false" if you ever put Grafana behind a public reverse proxy.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # Only needed to log in and edit dashboards. Username is `admin`.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Land on the noray dashboard instead of Grafana's welcome page.
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/noray.json
+      # Quieter, and no phoning home from your game's server.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+
+# Named volumes, so `docker compose down` keeps your history and only
+# `down -v` throws it away.
+volumes:
+  prometheus-data:
+  grafana-data:

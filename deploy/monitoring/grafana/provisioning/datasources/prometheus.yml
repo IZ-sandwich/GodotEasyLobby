@@ -1,0 +1,21 @@
+# Tells Grafana where to read metrics from, at startup.
+#
+# Without this file you would have to open Grafana, go to Connections, add a
+# Prometheus datasource and type the URL by hand. Provisioning it means the
+# stack comes up already wired together.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # The dashboard JSON refers to this uid. Changing it here means changing it
+    # in grafana/dashboards/noray.json too.
+    uid: noray-prometheus
+    # "proxy" = the Grafana server fetches the data, not your browser. This is
+    # what lets the browser on your laptop see data from a Prometheus that is
+    # only reachable on the VPS' loopback.
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true
+    editable: false

@@ -10,3 +10,5 @@
 
 build/
 export_presets.cfg
+
+tools/

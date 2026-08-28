@@ -2,7 +2,7 @@
 
 Code-based peer-to-peer multiplayer for Godot 4. Host a lobby, get a 6-character
 join code, share it. No port forwarding, and no game server - the only
-infrastructure is one small [noray](https://github.com/foxssake/noray) instance
+infrastructure required is one small [noray](https://github.com/foxssake/noray) instance
 that introduces peers and relays for the minority who can't connect directly.
 Players on the same network find each other by broadcast and skip noray
 or skip noray altogether by using a [LAN-only lobby](#lan-only-lobbies). Also optionally VoIP can be enabled in the lobby.
@@ -22,7 +22,6 @@ await EasyLobby.join_lobby("CNKBRH", "Player 2")
 After that it's ordinary Godot multiplayer: `@rpc`, `MultiplayerSpawner`,
 `MultiplayerSynchronizer`. The host is peer 1.
 
-This repository has been developed with the use of an LLM and I've rewritten parts of it to keep it simple.
 
 ## Setup
 
@@ -41,6 +40,7 @@ The "Connection" dropdown picks which path gets used, both instances should use 
 | --- | --- | --- |
 | Auto (LAN, then noray) | The full ladder, stopping at the first that works (LAN -> punchthrough -> relay) | Yes |
 | noray only | Punchthrough -> relay, with the LAN shortcut suppressed | Yes |
+| Relay only (testing only) | The relay, with LAN and punchthrough both suppressed | Yes |
 | LAN only (offline) | Broadcast discovery and a direct connection | No |
 
 The status line names the path that won - `connected via LAN`, `connected via punch`, or `connected via relay`
@@ -64,6 +64,7 @@ All of it is on the `EasyLobby` autoload.
 | `get_local_player()` / `get_player(id)` | |
 | `all_ready()` | True when everyone is ready and there are >= 2 players. |
 | `is_in_lobby()` | |
+| `get_game_id()` | What this build calls itself in the handshake. |
 
 | Signal | Fires when |
 | --- | --- |
@@ -78,7 +79,8 @@ All of it is on the `EasyLobby` autoload.
 
 Failure reasons are constants:
 `JOIN_BAD_CODE`, `JOIN_NO_SERVER`, `JOIN_NOT_FOUND`, `JOIN_UNREACHABLE`,
-`JOIN_FULL`, `JOIN_SEALED`, `CLOSED_HOST_LEFT`, `CLOSED_KICKED`, `CLOSED_LEFT`.
+`JOIN_FULL`, `JOIN_SEALED`, `JOIN_WRONG_GAME_ID`, `CLOSED_HOST_LEFT`,
+`CLOSED_KICKED`, `CLOSED_LEFT`.
 
 `EasyLobbyPlayer` carries `peer_id`, `player_name`, `is_ready` and `custom`,
 which replicate on update.
@@ -132,6 +134,7 @@ In auto mode, `join_lobby()` tries three paths in order and stops at the first t
 
 Discovery costs `easy_lobby/lan/discovery_timeout_sec` on every join that turns
 out not to be on the LAN, so the default is deliberately short (0.6s). LAN mode can be turned off completely in project settings at `easy_lobby/lan/enabled`.
+
 
 ## LAN-only lobbies
 

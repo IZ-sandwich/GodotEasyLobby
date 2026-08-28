@@ -10,6 +10,9 @@ var SETTINGS := [
 	{"name": "easy_lobby/noray/host", "value": "127.0.0.1", "type": TYPE_STRING},
 	{"name": "easy_lobby/noray/port", "value": 8890, "type": TYPE_INT},
 	{"name": "easy_lobby/noray/registrar_port", "value": 8809, "type": TYPE_INT},
+	# What this build calls itself in the join handshake. Peers only share a lobby
+	# when these and the application version match exactly.
+	{"name": "easy_lobby/lobby/game_id", "value": "", "type": TYPE_STRING},
 	{"name": "easy_lobby/lobby/max_players", "value": 8, "type": TYPE_INT},
 	# Must match NORAY_OID_LENGTH on the server. 0 disables the length check,
 	# which is what word-style OIDs need.
@@ -40,6 +43,11 @@ var SETTINGS := [
 	{"name": "easy_lobby/timeouts/register_retries", "value": 3, "type": TYPE_INT},
 	# Prints every step of registration and the connect ladder.
 	{"name": "easy_lobby/debug/verbose_logging", "value": false, "type": TYPE_BOOL},
+	# Skip the LAN and punchthrough rungs so every join goes over noray's relay,
+	# which is otherwise only reachable from behind a NAT that defeats punchthrough.
+	# For testing the relay path on purpose. Do not ship with this on - it puts every
+	# session's traffic through your noray box and adds a hop of latency.
+	{"name": "easy_lobby/debug/force_relay", "value": false, "type": TYPE_BOOL},
 	
 	# --- Voice chat. All of it is ignored unless TwoVoip is installed. ---
 	

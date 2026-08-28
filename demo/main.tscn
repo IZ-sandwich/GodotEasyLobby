@@ -47,6 +47,7 @@ unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Auto: try the local network first, then noray.
 noray only: skip the LAN shortcut, so punchthrough and relay get exercised.
+Relay only: skip LAN and punchthrough too, so the relay path is always the one used.
 LAN only: no noray at all, and everyone must be on this network."
 
 [node name="Actions" type="HBoxContainer" parent="Root" unique_id=276202224]

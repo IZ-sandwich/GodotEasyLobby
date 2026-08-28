@@ -5,12 +5,24 @@ extends Node
 ##   godot --headless --path . res://demo/headless_test.tscn -- host
 ##   godot --headless --path . res://demo/headless_test.tscn -- join ABCDEF
 ##
-## The "filter" and "voice" roles are self-contained and need no second instance.
+## The game id roles pair up over LAN, so they need no noray either:
+##
+##   godot ... -- host-lan                    # plain LAN host, kill it when done
+##   godot ... -- join-other-game ABCDEF      # different id, discovery must miss
+##   godot ... -- host-lan some-other-game    # host moves its id after hosting
+##   godot ... -- join-wrong-game ABCDEF      # gets in, must be turned away
+##
+## The "filter", "voice" and "game-id" roles are self-contained and need no
+## second instance.
 ## Run "voice" without --headless (use --display-driver headless) to get a real
 ## audio driver and more than one device to switch between.
 ##
 ## Prints machine-readable lines (CODE=, ROSTER=, OK, FAIL=) so a shell script
 ## can drive both sides and assert on the result.
+
+## Reaching a static method through the EasyLobby autoload instance warns, so
+## call them on the script.
+const EasyLobbyScript := preload("res://addons/easy_lobby/easy_lobby.gd")
 
 const TIMEOUT_SEC := 300.0
 
@@ -18,6 +30,9 @@ var _role := ""
 var _saw_peer := false
 var _expect_failures := false
 var _expect_closed := ""
+## The JOIN_* reason this role is waiting to be turned away with. Unlike
+## _expect_failures, getting in is the failure.
+var _expect_join_failure := ""
 ## The chat message this role is waiting on, empty once it has arrived.
 var _expect_chat := ""
 
@@ -31,11 +46,7 @@ func _ready() -> void:
 
 	EasyLobby.lobby_created.connect(func(code: String) -> void: print("CODE=", code))
 	EasyLobby.lobby_joined.connect(func(code: String) -> void: print("JOINED=", code))
-	EasyLobby.lobby_join_failed.connect(func(reason: String) -> void:
-		print("JOIN_FAILED=", reason)
-		if not _expect_failures:
-			_fail("join_failed:" + reason)
-	)
+	EasyLobby.lobby_join_failed.connect(_on_join_failed)
 	EasyLobby.lobby_closed.connect(_on_closed)
 	EasyLobby.lobby_updated.connect(_on_updated)
 	EasyLobby.connect_progress.connect(func(stage: String) -> void: print("STAGE=", stage))
@@ -63,6 +74,43 @@ func _ready() -> void:
 		"voice":
 			_check_voice()
 			get_tree().quit(0)
+		"game-id":
+			_check_game_id()
+			get_tree().quit(0)
+		"host-lan":
+			# A LAN lobby that just sits there, for the two roles below to aim at.
+			# Meant to be killed by whatever drives it rather than to finish.
+			var err := await EasyLobby.create_lobby("Host", 0, true)
+			if err != OK:
+				_fail("create_lobby:" + error_string(err))
+				return
+			# With a second argument, move the game id out from under the lobby.
+			# LAN discovery captured its own when the lobby came up, so it keeps
+			# answering under the old id while the join handshake checks the new
+			# one - which is exactly the state a peer arriving from another game
+			# on a shared noray puts the host in, minus needing a shared noray.
+			if args.size() > 1:
+				ProjectSettings.set_setting("easy_lobby/lobby/game_id", args[1])
+				print("GAME_ID_NOW=", EasyLobbyScript.get_game_id())
+		"join-wrong-game":
+			if args.size() < 2:
+				_fail("join-wrong-game needs a code")
+				return
+			_expect_join_failure = EasyLobby.JOIN_WRONG_GAME_ID
+			var err := await EasyLobby.join_lobby(args[1], "Client", true)
+			if err != OK:
+				_fail("join_lobby:" + error_string(err))
+		"join-other-game":
+			# The other half: a mismatch the host never even hears about, because
+			# discovery is scoped by game id and no one answers the probe.
+			if args.size() < 2:
+				_fail("join-other-game needs a code")
+				return
+			ProjectSettings.set_setting("easy_lobby/lobby/game_id", "some-other-game")
+			_expect_join_failure = EasyLobby.JOIN_NOT_FOUND
+			var err := await EasyLobby.join_lobby(args[1], "Client", true)
+			if err != OK and err != ERR_DOES_NOT_EXIST:
+				_fail("join_lobby:" + error_string(err))
 		"retry":
 			# Regression cover for the stale-registration bug: a failed join used
 			# to re-register on the same TCP socket, and noray's findBySocket()
@@ -118,6 +166,23 @@ func _ready() -> void:
 			await _probe_relay(args[1] if args.size() > 1 else "")
 		_:
 			_fail("unknown role " + _role)
+
+
+## The roles that expect to be turned away assert on the reason; the rest treat
+## any failure as a failed run.
+func _on_join_failed(reason: String) -> void:
+	print("JOIN_FAILED=", reason)
+
+	if not _expect_join_failure.is_empty():
+		if reason != _expect_join_failure:
+			_fail("turned away with '%s', expected '%s'" % [reason, _expect_join_failure])
+			return
+		print("OK")
+		get_tree().quit(0)
+		return
+
+	if not _expect_failures:
+		_fail("join_failed:" + reason)
 
 
 ## The kicked side asserts on the reason; every other role just reports it.
@@ -260,6 +325,52 @@ func _check_voice() -> void:
 		print("OK")
 
 
+## Assert how the game id resolves: an explicit setting wins, anything blank
+## falls back to the project name so two projects differ without being told to,
+## and the application version is appended only when there is one.
+##
+## All ProjectSettings, so this needs neither a lobby nor a network.
+func _check_game_id() -> void:
+	var original: String = ProjectSettings.get_setting("easy_lobby/lobby/game_id", "")
+	var original_version: String = ProjectSettings.get_setting("application/config/version", "")
+	var project_name: String = ProjectSettings.get_setting("application/config/name", "")
+	var failures := 0
+
+	# [game_id setting, version setting] -> what the handshake should carry.
+	var cases := {
+		["forest-brawl", ""]: "forest-brawl",
+		# Whitespace is not an id. Falling back beats handshaking on " ".
+		["   ", ""]: project_name,
+		["", ""]: project_name,
+		# Trimmed, so a stray space pasted into either setting cannot split two
+		# builds that are otherwise the same game.
+		["  forest-brawl  ", "  3  "]: "forest-brawl@3",
+		# Godot leaves config/version blank, so an unset version has to mean no
+		# version rather than a dangling separator.
+		["forest-brawl", "   "]: "forest-brawl",
+		["forest-brawl", "1.2"]: "forest-brawl@1.2",
+		["", "1.2"]: project_name + "@1.2",
+	}
+
+	for case in cases:
+		ProjectSettings.set_setting("easy_lobby/lobby/game_id", case[0])
+		ProjectSettings.set_setting("application/config/version", case[1])
+		var resolved := EasyLobbyScript.get_game_id()
+		print("GAME_ID['%s' v'%s']=%s" % [case[0], case[1], resolved])
+		if resolved != cases[case]:
+			print("GAME_ID_BAD= '%s'/'%s' resolved to '%s', expected '%s'" % [
+				case[0], case[1], resolved, cases[case]
+			])
+			failures += 1
+
+	ProjectSettings.set_setting("easy_lobby/lobby/game_id", original)
+	ProjectSettings.set_setting("application/config/version", original_version)
+
+	print("GAME_ID_FAILURES=", failures)
+	if failures == 0:
+		print("OK")
+
+
 ## Assert EasyLobbyCodeFilter accepts ordinary codes and rejects ugly ones.
 func _check_filter() -> void:
 	var should_pass := [
@@ -331,6 +442,8 @@ func _watchdog() -> void:
 		_fail("timeout after %.0fs" % TIMEOUT_SEC)
 	elif not _expect_closed.is_empty():
 		_fail("timeout waiting for lobby_closed('%s')" % _expect_closed)
+	elif not _expect_join_failure.is_empty():
+		_fail("timeout waiting to be turned away with '%s'" % _expect_join_failure)
 	elif not _expect_chat.is_empty():
 		_fail("timeout waiting for the chat message '%s'" % _expect_chat)
 

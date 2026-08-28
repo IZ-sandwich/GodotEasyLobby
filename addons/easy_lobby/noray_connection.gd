@@ -44,6 +44,11 @@ var _lan_enabled := true
 var _lan_discovery_port := 8898
 var _lan_timeout := 0.6
 
+# Testing aid: take the relay rung and nothing else. See configure().
+var _force_relay := false
+
+var _game_id := ""
+
 # Set only while hosting a LAN-only lobby, where there is no OID to read the code
 # back out of. Doubles as the "this lobby has no noray behind it" flag.
 var _lan_code := ""
@@ -69,6 +74,10 @@ func _ready() -> void:
 	add_child(_lan)
 
 
+## [param force_relay] is a testing aid: it holds the LAN and punchthrough rungs
+## shut so every noray join goes over the relay. It costs bandwidth on
+## the noray box and latency for the players, so it is not something to ship on.
+## The [param offline] flag on [method join_lobby] still wins over it.
 func configure(
 	handshake_timeout: float,
 	register_retries: int,
@@ -76,7 +85,9 @@ func configure(
 	lan_enabled := true,
 	lan_discovery_port := 8898,
 	lan_timeout := 0.6,
-	noray_connect_timeout := 5.0
+	noray_connect_timeout := 5.0,
+	game_id := "",
+	force_relay := false
 ) -> void:
 	_handshake_timeout = handshake_timeout
 	_register_retries = maxi(1, register_retries)
@@ -85,6 +96,8 @@ func configure(
 	_lan_discovery_port = lan_discovery_port
 	_lan_timeout = lan_timeout
 	_noray_connect_timeout = noray_connect_timeout
+	_game_id = game_id
+	_force_relay = force_relay
 	_lan.verbose_logging = log_verbose
 
 
@@ -167,9 +180,11 @@ func host_lobby(max_players: int) -> Error:
 	if not Noray.on_connect_relay.is_connected(_open_mapping):
 		Noray.on_connect_relay.connect(_open_mapping)
 
-	if _lan_enabled:
-		# Error is ok to swallow, noray is primary goal here. 
-		_lan.start_responding(Noray.oid, Noray.local_port, _lan_discovery_port)
+	# Not answering probes is half of forcing the relay: a client on this subnet
+	# would otherwise find us and take the LAN shortcut no matter what the host wants.
+	if _lan_enabled and not _force_relay:
+		# Error is ok to swallow, noray is primary goal here.
+		_lan.start_responding(_game_id, Noray.oid, Noray.local_port, _lan_discovery_port)
 	stage_changed.emit(STAGE_CONNECTED_AS_HOST)
 	return OK
 
@@ -183,7 +198,7 @@ func host_lan_lobby(code: String, max_players: int) -> Error:
 		return err
 
 	var lan_err: Error = _lan.start_responding(
-		code, peer.host.get_local_port(), _lan_discovery_port
+		_game_id, code, peer.host.get_local_port(), _lan_discovery_port
 	)
 	if lan_err != OK:
 		peer.close()
@@ -229,17 +244,18 @@ func _run_join_ladder(code: String, offline: bool) -> Error:
 	if offline:
 		return await _try_lan(code, LAN_ONLY_SEARCH_TIMEOUT_SEC)
 
-	if _lan_enabled and await _try_lan(code, _lan_timeout) == OK:
+	if _lan_enabled and not _force_relay and await _try_lan(code, _lan_timeout) == OK:
 		return OK
 
-	stage_changed.emit(STAGE_PUNCHING)
-	if Noray.connect_nat(code) == OK:
-		var nat := await _await_connect(Noray.on_connect_nat)
-		if not _connect_error.is_empty():
-			return ERR_DOES_NOT_EXIST
-		if nat != null and await _try_connect(nat[0], nat[1]) == OK:
-			stage_changed.emit(STAGE_CONNECTED_VIA_PUNCH)
-			return OK
+	if not _force_relay:
+		stage_changed.emit(STAGE_PUNCHING)
+		if Noray.connect_nat(code) == OK:
+			var nat := await _await_connect(Noray.on_connect_nat)
+			if not _connect_error.is_empty():
+				return ERR_DOES_NOT_EXIST
+			if nat != null and await _try_connect(nat[0], nat[1]) == OK:
+				stage_changed.emit(STAGE_CONNECTED_VIA_PUNCH)
+				return OK
 
 	stage_changed.emit(STAGE_RELAYING)
 	if Noray.connect_relay(code) != OK:
@@ -342,10 +358,6 @@ func _ensure_bindable_port() -> Error:
 
 
 ## Host side: open our NAT mapping toward a peer that noray has pointed at us.
-##
-## Guarded against re-entry: a joiner retrying spawns another of these while the
-## previous one is still running, and concurrent handshakes share one ENet socket
-## and steal each other's packets.
 func _open_mapping(address: String, port: int) -> void:
 	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
 	if not _is_hosting or peer == null:
@@ -374,7 +386,9 @@ func _open_mapping(address: String, port: int) -> void:
 func _try_lan(code: String, search_timeout: float) -> Error:
 	stage_changed.emit(STAGE_SEARCHING_LAN)
 
-	var found: Variant = await _lan.find_host(code, _lan_discovery_port, search_timeout)
+	var found: Variant = await _lan.find_host(
+		_game_id, code, _lan_discovery_port, search_timeout
+	)
 	if found == null:
 		return ERR_DOES_NOT_EXIST
 

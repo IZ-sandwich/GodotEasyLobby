@@ -1,0 +1,27 @@
+# Prometheus scrape config.
+#
+# Prometheus works by polling ("scraping") HTTP endpoints that publish a plain
+# text list of numbers. It stores every reading with a timestamp, forever-ish,
+# and Grafana queries it later. noray does the publishing half for free at
+# /metrics - this file just tells Prometheus where to look and how often.
+
+global:
+  # Every 15s Prometheus fetches http://127.0.0.1:8891/metrics and records the
+  # numbers it finds. Shorter = finer detail and more disk. 15s is plenty for
+  # spotting relay saturation and join failures.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: noray
+    # noray serves metrics at /metrics, which is Prometheus' default path.
+    static_configs:
+      # This is the host's loopback, reachable because the Prometheus container
+      # runs with network_mode: host. Must match NORAY_HTTP_HOST/PORT per game *.env.
+      - targets: ["127.0.0.1:8891"]
+        labels:
+          game: game-1
+
+# Prometheus also records, for free, a metric called `up` per target: 1 when the
+# last scrape succeeded, 0 when it failed. The dashboard uses `up{job="noray"}`
+# as its "is noray alive" tile - no extra configuration needed.

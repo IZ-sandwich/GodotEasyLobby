@@ -17,6 +17,7 @@ var verbose_logging := false
 
 var _socket: PacketPeerUDP = null
 var _code := ""
+var _game_tag := ""
 var _game_port := 0
 
 
@@ -30,8 +31,12 @@ func _init() -> void:
 ## [param game_port] is where our [ENetMultiplayerPeer] server is listening.
 ## This is what gets handed back to a joiner.
 ##
-## Returns the bind error if the discovery port is unavailable.
-func start_responding(code: String, game_port: int, discovery_port: int) -> Error:
+## Returns the bind error if the discovery port is unavailable. Note the bind is
+## exclusive, so two of your games hosting LAN lobbies on one machine need
+## different easy_lobby/lan/discovery_port values or the second loses discovery.
+func start_responding(
+	game_id: String, code: String, game_port: int, discovery_port: int
+) -> Error:
 	stop()
 
 	var socket := PacketPeerUDP.new()
@@ -48,13 +53,14 @@ func start_responding(code: String, game_port: int, discovery_port: int) -> Erro
 
 	_socket = socket
 	_code = code
+	_game_tag = _tag(game_id)
 	_game_port = game_port
 	set_process(true)
 
 	if verbose_logging:
 		print(
-			"[EasyLobby] LAN: answering probes for %s on port %d, pointing at game port %d"
-			% [code, discovery_port, game_port]
+			"[EasyLobby] LAN: answering probes for %s/%s on port %d, pointing at game port %d"
+			% [game_id, code, discovery_port, game_port]
 		)
 	return OK
 
@@ -66,6 +72,7 @@ func stop() -> void:
 		_socket.close()
 		_socket = null
 	_code = ""
+	_game_tag = ""
 	_game_port = 0
 
 
@@ -77,15 +84,16 @@ func stop() -> void:
 ## This runs on every join, including ones that will end up going through noray,
 ## so [param timeout] is a cost on the common internet gameplay path.
 func find_host(
-	code: String, discovery_port: int, timeout: float, interval := 0.1
+	game_id: String, code: String, discovery_port: int, timeout: float, interval := 0.1
 ) -> Variant:
 	var socket := PacketPeerUDP.new()
 	if socket.bind(0) != OK:
 		return null
 	socket.set_broadcast_enabled(true)
 
-	var probe := (MAGIC + "?" + code).to_ascii_buffer()
-	var expected := MAGIC + "!" + code + ":"
+	var tag := _tag(game_id)
+	var probe := (MAGIC + "?" + tag + ":" + code).to_ascii_buffer()
+	var expected := MAGIC + "!" + tag + ":" + code + ":"
 	var result: Variant = null
 	var remaining := timeout
 
@@ -120,12 +128,17 @@ func find_host(
 # --- Internals ----------------------------------------------------------------
 
 
+## A fixed-length ASCII hash for a game id, for putting on the wire.
+static func _tag(game_id: String) -> String:
+	return game_id.md5_text().left(8)
+
+
 func _process(_delta: float) -> void:
 	if _socket == null:
 		return
 
-	var query := MAGIC + "?" + _code
-	var reply := "%s!%s:%d" % [MAGIC, _code, _game_port]
+	var query := MAGIC + "?" + _game_tag + ":" + _code
+	var reply := "%s!%s:%s:%d" % [MAGIC, _game_tag, _code, _game_port]
 
 	while _socket.get_available_packet_count() > 0:
 		var payload := _socket.get_packet().get_string_from_ascii()
