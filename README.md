@@ -4,8 +4,10 @@ Code-based peer-to-peer multiplayer for Godot 4. Host a lobby, get a 6-character
 join code, share it. No port forwarding, and no game server - the only
 infrastructure required is one small [noray](https://github.com/foxssake/noray) instance
 that introduces peers and relays for the minority who can't connect directly.
-Players on the same network find each other by broadcast and skip noray
-or skip noray altogether by using a [LAN-only lobby](#lan-only-lobbies). Also optionally VoIP can be enabled in the lobby.
+Players on the same network find each other by broadcast and skip noray.
+You can also skip noray altogether by using a [LAN-only lobby](#lan-only-lobbies).
+
+Also optionally VoIP can be enabled in the lobby using [TwoVoip](https://github.com/goatchurchprime/two-voip-godot-4).
 
 Once peers are connected, noray is out of the data path entirely.
 
